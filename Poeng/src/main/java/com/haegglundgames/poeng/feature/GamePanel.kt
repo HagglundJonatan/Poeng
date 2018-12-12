@@ -10,6 +10,12 @@ import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.View
 
+enum class GameOver {
+    GO_NONE,
+    GO_PLAYER_1_WON,
+    GO_PLAYER_2_WON
+}
+
 class GamePanel(context: Context) : SurfaceView(context), SurfaceHolder.Callback, View.OnTouchListener {
 
     private val thread: MainThread
@@ -19,23 +25,31 @@ class GamePanel(context: Context) : SurfaceView(context), SurfaceHolder.Callback
     private val screenHeight = Resources.getSystem().displayMetrics.heightPixels
     private var ball: Ball? = null
     private var middleLinePaint: Paint? = null
+    private var textPaint: Paint? = null
+    private var gameOver: GameOver = GameOver.GO_NONE
 
     init {
         holder.addCallback(this)
         setOnTouchListener(this)
         thread = MainThread(holder, this)
         isFocusable = true
-    }
-
-    override fun surfaceCreated(holder: SurfaceHolder) {
-        player1Block = PlayerBlock((screenWidth / 2 - 150).toFloat(), 100f, 300f, 100f, Color.RED)
-        player2Block = PlayerBlock((screenWidth / 2 - 150).toFloat(), (screenHeight - 100 - 100).toFloat(), 300f, 100f, Color.GREEN)
-        ball = Ball((screenWidth / 2).toFloat(), (screenHeight / 2).toFloat(), 50f, 5.0f, 1.0f, 1.0f)
         middleLinePaint = Paint()
         middleLinePaint?.color = Color.GRAY
         middleLinePaint?.strokeWidth = 10.0f
+        textPaint = Paint()
+        textPaint?.color = Color.YELLOW
+        textPaint?.textSize = 100.0f
+    }
 
-        this.setOnTouchListener(this)
+    private fun setupGameComponents() {
+        player1Block = PlayerBlock((screenWidth / 2 - 150).toFloat(), 100f, 300f, 100f, Color.RED)
+        player2Block = PlayerBlock((screenWidth / 2 - 150).toFloat(), (screenHeight - 100 - 100).toFloat(), 300f, 100f, Color.GREEN)
+        ball = Ball((screenWidth / 2).toFloat(), (screenHeight / 2).toFloat(), 50f, 7.0f, 1.0f, 1.0f)
+    }
+
+    override fun surfaceCreated(holder: SurfaceHolder) {
+        setupGameComponents()
+        setOnTouchListener(this)
         thread.setRunning(true)
         thread.start()
     }
@@ -65,16 +79,23 @@ class GamePanel(context: Context) : SurfaceView(context), SurfaceHolder.Callback
         } else if (event!!.y >= screenHeight / 2) {
             player2Block?.update(event.x)
         }
+
+        if (gameOver != GameOver.GO_NONE) {
+            gameOver = GameOver.GO_NONE
+            setupGameComponents()
+        }
         return true
     }
 
     fun update() {
-        player1Block?.update()
-        player2Block?.update()
+        if (gameOver == GameOver.GO_NONE) {
+            player1Block?.update()
+            player2Block?.update()
 
-        checkScreenCollision()
-        checkPlayerCollision()
-        ball?.update()
+            checkScreenCollision()
+            checkPlayerCollision()
+            ball?.update()
+        }
     }
 
     override fun draw(canvas: Canvas?) {
@@ -84,6 +105,10 @@ class GamePanel(context: Context) : SurfaceView(context), SurfaceHolder.Callback
             player1Block?.draw(canvas)
             player2Block?.draw(canvas)
             ball?.draw(canvas)
+            if (gameOver != GameOver.GO_NONE) {
+                val winnerString = "PLAYER ${gameOver.ordinal} WON!"
+                canvas.drawText(winnerString, screenWidth / 2.0f - 350, screenHeight / 2.0f, textPaint)
+            }
         }
     }
 
@@ -91,17 +116,19 @@ class GamePanel(context: Context) : SurfaceView(context), SurfaceHolder.Callback
         // Check if ball.xPos has collided with left and right screen borders, change direction if so
         if ((ball?.xPos!! - ball?.radius!! <= 0) || (ball?.xPos!! + ball?.radius!! >= screenWidth)) {
             ball?.directionX = ball?.directionX!! * -1.0f
-            ball!!.velocity += 0.2f
+            ball!!.velocity += 0.02f
         }
         // Check if ball.yPos has collided with top and bottom screen borders, change direction if so
         if (ball?.yPos!! - ball?.radius!! <= 0) {
             ball?.directionY = ball?.directionY!! * -1.0f
-            ball!!.velocity += 0.2f
+            ball!!.velocity += 0.02f
             //BottomPlayer scored!
+            gameOver = GameOver.GO_PLAYER_2_WON
         } else if (ball?.yPos!! + ball?.radius!! >= screenHeight) {
             ball?.directionY = ball?.directionY!! * -1.0f
-            ball!!.velocity += 0.2f
+            ball!!.velocity += 0.02f
             //TopPlayer scored!
+            gameOver = GameOver.GO_PLAYER_1_WON
         }
     }
 
@@ -114,7 +141,7 @@ class GamePanel(context: Context) : SurfaceView(context), SurfaceHolder.Callback
                     0, 1 -> ball?.directionX = ball?.directionX!! * -1.0f
                     2, 3 -> ball?.directionY = ball?.directionY!! * -1.0f
                 }
-                ball!!.velocity += 0.2f
+                ball!!.velocity += 0.02f
             }
 
             if (player2Block!!.contains(ball!!.edges[edgeIndex].x, ball!!.edges[edgeIndex].y)) {
