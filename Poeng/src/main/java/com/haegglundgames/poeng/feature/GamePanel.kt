@@ -5,10 +5,13 @@ import android.content.res.Resources
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.PointF
+import android.util.SparseArray
 import android.view.MotionEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.View
+import java.util.*
 
 enum class GameOver {
     GO_NONE,
@@ -27,6 +30,7 @@ class GamePanel(context: Context) : SurfaceView(context), SurfaceHolder.Callback
     private var middleLinePaint: Paint? = null
     private var textPaint: Paint? = null
     private var gameOver: GameOver = GameOver.GO_NONE
+    private var activePointers: SparseArray<PointF>? = null
 
     init {
         holder.addCallback(this)
@@ -39,12 +43,23 @@ class GamePanel(context: Context) : SurfaceView(context), SurfaceHolder.Callback
         textPaint = Paint()
         textPaint?.color = Color.YELLOW
         textPaint?.textSize = 100.0f
+        activePointers = SparseArray()
     }
 
     private fun setupGameComponents() {
         player1Block = PlayerBlock((screenWidth / 2 - 150).toFloat(), 100f, 300f, 100f, Color.RED)
         player2Block = PlayerBlock((screenWidth / 2 - 150).toFloat(), (screenHeight - 100 - 100).toFloat(), 300f, 100f, Color.GREEN)
-        ball = Ball((screenWidth / 2).toFloat(), (screenHeight / 2).toFloat(), 50f, 7.0f, 1.0f, 1.0f)
+
+        var directionX: Float = (-1..1).shuffled().last().toFloat()
+        if (directionX == 0.0f) {
+            directionX = 1.0f
+        }
+        var directionY: Float = (-1..1).shuffled().last().toFloat()
+        if (directionY == 0.0f) {
+            directionY = -1.0f
+        }
+
+        ball = Ball((screenWidth / 2).toFloat(), (screenHeight / 2).toFloat(), 50f, 10.0f, directionX, directionY)
     }
 
     override fun surfaceCreated(holder: SurfaceHolder) {
@@ -74,27 +89,61 @@ class GamePanel(context: Context) : SurfaceView(context), SurfaceHolder.Callback
     }
 
     override fun onTouch(v: View?, event: MotionEvent?): Boolean {
-        if (event!!.y < screenHeight / 2) {
-            player1Block?.update(event.x)
-        } else if (event!!.y >= screenHeight / 2) {
-            player2Block?.update(event.x)
-        }
 
-        if (gameOver != GameOver.GO_NONE) {
-            gameOver = GameOver.GO_NONE
-            setupGameComponents()
+        var pointerIndex = event!!.actionIndex
+
+        var pointerId = event?.getPointerId(pointerIndex)
+
+        var maskedAction = event?.actionMasked
+
+        when (maskedAction) {
+            MotionEvent.ACTION_DOWN,
+            MotionEvent.ACTION_POINTER_DOWN -> {
+                var pointF = PointF()
+                pointF.x = event.getX(pointerIndex)
+                pointF.y = event.getY(pointerIndex)
+                activePointers?.put(pointerId, pointF)
+
+                if ((pointF.y > screenHeight / 8 * 3) && (pointF.y < screenHeight / 8 * 5) &&
+                        (gameOver != GameOver.GO_NONE)) {
+                    gameOver = GameOver.GO_NONE
+                    setupGameComponents()
+                }
+            }
+            MotionEvent.ACTION_MOVE -> {
+                var i = 0
+                while (i < event?.pointerCount) {
+                    var pointF = activePointers?.get(event.getPointerId(i))
+                    pointF?.let {
+                        pointF.x = event.getX(i)
+                        pointF.y = event.getY(i)
+
+                        if (pointF.y < screenHeight / 8 * 3) {
+                            player1Block?.update(pointF.x)
+                        } else if (pointF.y >= screenHeight / 8 * 5) {
+                            player2Block?.update(pointF.x)
+                        }
+                        else {}
+                    }
+                    ++i
+                }
+            }
+            MotionEvent.ACTION_UP,
+            MotionEvent.ACTION_POINTER_UP,
+            MotionEvent.ACTION_CANCEL -> {
+                activePointers?.remove(pointerId)
+            }
         }
         return true
     }
 
     fun update() {
         if (gameOver == GameOver.GO_NONE) {
-            player1Block?.update()
-            player2Block?.update()
-
             checkScreenCollision()
             checkPlayerCollision()
             ball?.update()
+            player1Block?.update()
+            player2Block?.update()
         }
     }
 
@@ -140,6 +189,10 @@ class GamePanel(context: Context) : SurfaceView(context), SurfaceHolder.Callback
                 when (edgeIndex) {
                     0, 1 -> ball?.directionX = ball?.directionX!! * -1.0f
                     2, 3 -> ball?.directionY = ball?.directionY!! * -1.0f
+                    4, 5, 6, 7 -> {
+                        ball?.directionX = ball?.directionX!! * -1.0f
+                        ball?.directionY = ball?.directionY!! * -1.0f
+                    }
                 }
                 ball!!.velocity += 0.02f
             }
