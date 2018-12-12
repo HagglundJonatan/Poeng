@@ -91,13 +91,16 @@ class GamePanel(context: Context) : SurfaceView(context), SurfaceHolder.Callback
         // Check if ball.xPos has collided with left and right screen borders, change direction if so
         if ((ball?.xPos!! - ball?.radius!! <= 0) || (ball?.xPos!! + ball?.radius!! >= screenWidth)) {
             ball?.directionX = ball?.directionX!! * -1.0f
+            ball!!.velocity += 0.2f
         }
         // Check if ball.yPos has collided with top and bottom screen borders, change direction if so
         if (ball?.yPos!! - ball?.radius!! <= 0) {
             ball?.directionY = ball?.directionY!! * -1.0f
+            ball!!.velocity += 0.2f
             //BottomPlayer scored!
         } else if (ball?.yPos!! + ball?.radius!! >= screenHeight) {
             ball?.directionY = ball?.directionY!! * -1.0f
+            ball!!.velocity += 0.2f
             //TopPlayer scored!
         }
     }
@@ -111,6 +114,7 @@ class GamePanel(context: Context) : SurfaceView(context), SurfaceHolder.Callback
                     0, 1 -> ball?.directionX = ball?.directionX!! * -1.0f
                     2, 3 -> ball?.directionY = ball?.directionY!! * -1.0f
                 }
+                ball!!.velocity += 0.2f
             }
 
             if (player2Block!!.contains(ball!!.edges[edgeIndex].x, ball!!.edges[edgeIndex].y)) {
@@ -119,6 +123,7 @@ class GamePanel(context: Context) : SurfaceView(context), SurfaceHolder.Callback
                     0, 1 -> ball?.directionX = ball?.directionX!! * -1.0f
                     2, 3 -> ball?.directionY = ball?.directionY!! * -1.0f
                 }
+                ball!!.velocity += 0.02f
             }
         }
     }
